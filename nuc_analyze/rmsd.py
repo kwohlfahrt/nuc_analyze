@@ -2,6 +2,7 @@
 from pathlib import Path
 from h5py import File as HDFFile
 import numpy as np
+import operator as op
 import click
 
 from .main import cli
@@ -20,13 +21,20 @@ def rmsd(nuc, structure="0"):
 @cli.command("rmsd")
 @click.argument("nucs", type=Path, nargs=-1, required=True)
 @click.option("--structure", default="0", help="Which structure in the file to read")
-def output_rmsd(nucs, structure):
+@click.option("--position", multiple=True, type=(str, int),
+              help="Which positions to look at (or all if none provided)")
+def output_rmsd(nucs, structure, position):
     from itertools import starmap
+    from functools import partial
 
     rmsds = []
     for nuc in nucs:
         with HDFFile(nuc, "r") as f:
             rmsds.append(dict(rmsd(f, structure)))
     conserved = set.intersection(*map(set, rmsds))
-    for chromo, pos in sorted(conserved):
+    if position:
+        positions = filter(partial(op.contains, conserved), position)
+    else:
+        positions = sorted(conserved)
+    for chromo, pos in positions:
         print("{}:{} {}".format(chromo, pos, max(rmsd[chromo, pos] for rmsd in rmsds)))
