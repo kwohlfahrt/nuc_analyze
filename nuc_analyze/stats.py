@@ -3,6 +3,9 @@ from h5py import File as HDFFile
 import numpy as np
 from collections import Counter
 from itertools import chain
+import click
+
+from .main import cli
 
 def flatten_dict(d):
   r = {}
@@ -35,40 +38,31 @@ def violations(nuc, structure="0"):
     # Order of models doesn't matter, summarized anyway
     return list(violations.values())
 
-def main(args=None):
-    from argparse import ArgumentParser
-    from sys import argv, stdout
+@cli.command()
+@click.argument("nucs", type=Path, nargs=-1, required=True)
+@click.option("--structure", default="0", help="Which structure in the file to read")
+@click.option("--param", multiple=True, help="Which calculation parameters to print")
+def stats(nucs, structure, param):
     import csv
-
-    parser = ArgumentParser(description="Analyze a .nuc file")
-    parser.add_argument("nucs", type=Path, nargs='+', help="The files to analyze")
-    parser.add_argument("--structure", type=str, default="0",
-                        help="Which structure in the file to use")
-    parser.add_argument("--params", type=str, nargs='*', default=[],
-                        help="Which calculation parameters to print")
-
-    args = parser.parse_args(argv[1:] if args is None else args)
+    from sys import stdout
 
     stat_names = ["scale", "violations"]
     stat_cols = list(chain.from_iterable(
         ("{}_mean".format(s), "{}_std".format(s)) for s in stat_names
     ))
 
-    writer = csv.DictWriter(stdout, ["filename"] + stat_cols + args.params)
+    writer = csv.DictWriter(stdout, ["filename"] + stat_cols + list(param))
     writer.writeheader()
-    for nuc in args.nucs:
+    for nuc in nucs:
         with HDFFile(nuc, "r") as f:
-            params = f['structures'][args.structure]['calculation'].attrs
-            params = {k: params[k] for k in args.params}
+            params = f['structures'][structure]['calculation'].attrs
+            params = {k: params[k] for k in param}
             if "particle_sizes" in params:
                 params["particle_sizes"] = params["particle_sizes"][-1]
             params["filename"] = str(nuc.name)
 
             for stat in stat_names:
-                stat_values = globals()[stat](f, args.structure)
+                stat_values = globals()[stat](f, structure)
                 params["{}_mean".format(stat)] = np.mean(stat_values)
                 params["{}_std".format(stat)] = np.std(stat_values)
             writer.writerow(params)
-
-if __name__ == "__main__":
-    main()

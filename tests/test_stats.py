@@ -1,5 +1,6 @@
 import numpy as np
 from h5py import File as HDFFile
+from click.testing import CliRunner
 
 # Structure with two chromosomes x two models x two particles
 # Add 'foo' as a test attr
@@ -21,7 +22,7 @@ nuc = {'structures': {'0': {
 }}}
 
 def test_flatten_dict():
-    from nuc_analyze.nuc_analyze import flatten_dict
+    from nuc_analyze.stats import flatten_dict
 
     data = {0: {1: {2: 'foo', 3: 'foo2'}, 'bar': 'baz'}, 5: 'foo'}
     expected = {(0, 1, 2): 'foo', (0, 1, 3): 'foo2', (0, 'bar'): 'baz', (5,): 'foo'}
@@ -29,21 +30,22 @@ def test_flatten_dict():
     assert expected == flatten_dict(data)
 
 def test_scale():
-    from nuc_analyze.nuc_analyze import scale
+    from nuc_analyze.stats import scale
     from math import sqrt
 
     expected = np.array([0.0, sqrt(2) / 2])
     np.testing.assert_equal(scale(nuc), expected)
 
 def test_violations():
-    from nuc_analyze.nuc_analyze import violations
+    from nuc_analyze.stats import violations
 
 
     assert set(violations(nuc)) == {1, 4}
     violations = violations(nuc)
 
-def test_csv(capsys, tmpdir):
-    from nuc_analyze.nuc_analyze import main, flatten_dict
+def test_csv(tmpdir):
+    from nuc_analyze.main import cli
+    from nuc_analyze.stats import flatten_dict
     from math import sqrt
     p = tmpdir.join("test.nuc")
 
@@ -66,9 +68,9 @@ def test_csv(capsys, tmpdir):
         np.std(violations), 1
     ]
 
-    main([str(p), "--params", "foo"])
-    out, err = capsys.readouterr()
-    assert not err
-    out = iter(out.splitlines())
+    runner = CliRunner()
+    result = runner.invoke(cli, ["stats", str(p), "--param", "foo"])
+    assert result.exit_code == 0
+    out = iter(result.output.splitlines())
     assert next(out) == 'filename,scale_mean,scale_std,violations_mean,violations_std,foo'
     assert next(out) == ','.join(map(str, expected))
