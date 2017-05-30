@@ -32,6 +32,12 @@ def test_rmsd():
     expected = [(('1', 10), 0.), (('1', 200), 0.5), (('X', 0), 1.0), (('X', 100), 0.5)]
     assert sorted(rmsd(nucs[0])) == sorted(expected)
 
+def test_rmsd_aligned():
+    from nuc_analyze.rmsd import rmsd
+
+    expected = [(('1', 10), 0.), (('1', 200), 0.0), (('X', 0), 0.0), (('X', 100), 0.0)]
+    assert sorted(rmsd(nucs[0], align=True)) == sorted(expected)
+
 def test_rmsd_cli(tmpdir):
     from nuc_analyze.main import cli
 
@@ -50,6 +56,6 @@ def test_rmsd_cli(tmpdir):
     expected = ["1:10 0.0", "1:200 0.5", "X:100 2.0"]
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["rmsd", str(p)])
+    result = runner.invoke(cli, ["rmsd", str(p), "--no-align"])
     assert result.exit_code == 0
     assert result.output == '\n'.join(expected) + '\n'
