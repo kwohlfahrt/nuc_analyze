@@ -11,15 +11,25 @@ from functools import partial
 from .main import cli
 
 def align_models(coords):
-    targets = [rigidXform(t, *align(coords[0], t)) for t in coords[1:]]
-    return np.stack([coords[0]] + targets)
+    ref_stack = np.concatenate([v[0] for v in coords.values()], axis=0)
+
+    n_models = len(next(iter(coords.values())))
+    ndim = next(iter(coords.values())).shape[-1]
+    # Fitting to self returns NaN
+    yield (np.eye(ndim), np.zeros(ndim), 1.)
+    for i in range(1, n_models):
+        model_stack = np.concatenate([v[i] for v in coords.values()], axis=0)
+        yield align(ref_stack, model_stack)
 
 def rmsd(nuc, structure="0", align=False):
     from itertools import repeat
 
+    xforms = list(align_models(nuc['structures'][structure]['coords']))
     for chromo, coords in nuc['structures'][structure]['coords'].items():
         if align:
-            coords = align_models(coords)
+            coords = np.stack(
+                [rigidXform(c, *xform) for c, xform in zip(coords, xforms)], axis=0
+            )
         mean = np.mean(coords, axis=0, keepdims=True)
         error = np.linalg.norm((coords - mean), axis=-1)
         rmsds = np.sqrt(np.mean(error ** 2, axis=0))
