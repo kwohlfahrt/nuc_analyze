@@ -7,6 +7,7 @@ import click
 from coherent_point_drift.least_squares import align
 from coherent_point_drift.geometry import rigidXform
 from functools import partial
+from itertools import repeat
 
 from .main import cli
 
@@ -22,8 +23,6 @@ def align_models(coords):
         yield align(ref_stack, model_stack)
 
 def rmsd(nuc, structure="0", align=False):
-    from itertools import repeat
-
     xforms = list(align_models(nuc['structures'][structure]['coords']))
     for chromo, coords in nuc['structures'][structure]['coords'].items():
         if align:
@@ -34,8 +33,7 @@ def rmsd(nuc, structure="0", align=False):
         error = np.linalg.norm((coords - mean), axis=-1)
         rmsds = np.sqrt(np.mean(error ** 2, axis=0))
         positions = nuc['structures'][structure]['particles'][chromo]['positions']
-        positions = zip(repeat(chromo), positions)
-        yield from zip(positions, rmsds)
+        yield chromo, positions, rmsds
 
 @cli.command("rmsd")
 @click.argument("nucs", type=Path, nargs=-1, required=True)
@@ -46,14 +44,17 @@ def rmsd(nuc, structure="0", align=False):
 def output_rmsd(nucs, structure, position, align):
     from functools import partial
 
-    rmsds = []
+    nucs_rmsds = []
     for nuc in nucs:
         with HDFFile(nuc, "r") as f:
-            rmsds.append(dict(rmsd(f, structure, align)))
-    conserved = set.intersection(*map(set, rmsds))
+            nuc_rmsds = {}
+            for chromo, positions, rmsds in rmsd(f, structure, align):
+                nuc_rmsds.update(zip(zip(repeat(chromo), positions), rmsds))
+            nucs_rmsds.append(nuc_rmsds)
+    conserved = set.intersection(*map(set, nucs_rmsds))
     if position:
         positions = filter(partial(op.contains, conserved), position)
     else:
         positions = sorted(conserved)
     for chromo, pos in positions:
-        print("{}:{} {}".format(chromo, pos, max(rmsd[chromo, pos] for rmsd in rmsds)))
+        print("{}:{} {}".format(chromo, pos, max(rmsd[chromo, pos] for rmsd in nucs_rmsds)))

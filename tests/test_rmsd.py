@@ -29,14 +29,14 @@ nucs = [{'structures': {'0': {
 def test_rmsd():
     from nuc_analyze.rmsd import rmsd
 
-    expected = [(('1', 10), 0.), (('1', 200), 0.5), (('X', 0), 1.0), (('X', 100), 0.5)]
-    assert sorted(rmsd(nucs[0])) == sorted(expected)
+    expected = [('1', [10, 200], [0., 0.5]), ('X', [0, 100], [1.0, 0.5])]
+    np.testing.assert_equal(sorted(rmsd(nucs[0])), sorted(expected))
 
 def test_rmsd_aligned():
     from nuc_analyze.rmsd import rmsd
 
-    expected = [(('1', 10), 0.), (('1', 200), 0.0), (('X', 0), 0.0), (('X', 100), 0.0)]
-    assert sorted(rmsd(nucs[0], align=True)) == sorted(expected)
+    expected = [('1', [10, 200], [0.0, 0.0]), ('X', [0, 100], [0.0, 0.0])]
+    np.testing.assert_equal(sorted(rmsd(nucs[0], align=True)), sorted(expected))
 
 def test_rmsd_cli(tmpdir):
     from nuc_analyze.main import cli
