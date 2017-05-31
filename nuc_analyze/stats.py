@@ -6,15 +6,7 @@ from itertools import chain
 import click
 
 from .main import cli
-
-def flatten_dict(d):
-  r = {}
-  for key, value in d.items():
-    try:
-      r.update({(key,) + k: v for k, v in flatten_dict(value).items()})
-    except AttributeError:
-      r[(key,)] = value
-  return r
+from .util import flatten_dict
 
 def scale(nuc, structure="0"):
     coords = np.concatenate(list(nuc['structures'][structure]['coords'].values()), axis=1)
