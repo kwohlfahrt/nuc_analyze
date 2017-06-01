@@ -20,7 +20,7 @@ def align_models(coords):
     yield (np.eye(ndim), np.zeros(ndim), 1.)
     for i in range(1, n_models):
         model_stack = np.concatenate([v[i] for v in coords.values()], axis=0)
-        yield align(ref_stack, model_stack)
+        yield align(ref_stack, model_stack, mirror=True)
 
 def rmsd(nuc, structure="0", align=False):
     xforms = list(align_models(nuc['structures'][structure]['coords']))
