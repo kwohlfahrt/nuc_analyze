@@ -1,8 +1,8 @@
 from pathlib import Path
 from h5py import File as HDFFile
 import numpy as np
-from collections import Counter
-from itertools import chain
+from collections import Counter, defaultdict
+from itertools import chain, product as cartesian
 import click
 
 from .main import cli
@@ -40,9 +40,9 @@ def stats(nucs, structure, param, violation_padding):
     import csv
     from sys import stdout
 
-    stat_names = [("scale", {}), ("violations", {'padding': violation_padding})]
+    stat_names = {"scale": {}, "violations": {'padding': violation_padding}}
     stat_cols = list(chain.from_iterable(
-        ("{}_mean".format(s), "{}_std".format(s)) for s, _ in stat_names
+        ("{}_mean".format(s), "{}_std".format(s)) for s in sorted(stat_names)
     ))
 
     writer = csv.DictWriter(stdout, ["filename"] + stat_cols + list(param))
@@ -55,8 +55,38 @@ def stats(nucs, structure, param, violation_padding):
                 params["particle_sizes"] = params["particle_sizes"][-1]
             params["filename"] = str(nuc.name)
 
-            for stat, kwargs in stat_names:
+            for stat, kwargs in sorted(stat_names.items()):
                 stat_values = globals()[stat](f, structure, **kwargs)
                 params["{}_mean".format(stat)] = np.mean(stat_values)
                 params["{}_std".format(stat)] = np.std(stat_values)
             writer.writerow(params)
+
+@cli.command()
+@click.argument("nucs", type=Path, nargs=-1, required=True)
+@click.option("--structure", default="0", help="Which structure in the file to read")
+@click.option("--param", help="Which calculation parameter to plot against")
+@click.option("--violation-padding", type=float, default=0.0,
+              help="How much (relative) a restraint may be violated by")
+def plot_stats(nucs, structure, param, violation_padding):
+    import matplotlib.pyplot as plt
+
+    stat_names = {"scale": {}, "violations": {'padding': violation_padding}}
+    stats = defaultdict(lambda: np.empty((len(nucs), 3), dtype='float'))
+
+    fig, axs = plt.subplots(len(stat_names), 1)
+
+    for (i, nuc), (stat, kwargs) in cartesian(enumerate(nucs), stat_names.items()):
+        with HDFFile(nuc, "r") as f:
+            param_value = f['structures'][structure]['calculation'].attrs[param]
+            if param_value == "particle_sizes":
+                param_value["particle_sizes"] = param_value["particle_sizes"][-1]
+            stat_values = globals()[stat](f, structure, **kwargs)
+            stats[stat][i] = [param_value, np.mean(stat_values), np.std(stat_values)]
+
+    for ax, (stat_name, data) in zip(axs, stats.items()):
+        ax.set_ylabel(stat_name)
+        ax.set_xlabel(param)
+        data = np.sort(data, axis=0)
+        ax.errorbar(data.T[0], data.T[1], yerr=data.T[2])
+    fig.tight_layout()
+    plt.show()
