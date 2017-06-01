@@ -7,7 +7,7 @@ import click
 from coherent_point_drift.least_squares import align
 from coherent_point_drift.geometry import rigidXform
 from functools import partial
-from itertools import repeat
+from itertools import repeat, chain
 
 from .main import cli
 
@@ -32,7 +32,7 @@ def rmsd(nuc, structure="0", align=False):
         mean = np.mean(coords, axis=0, keepdims=True)
         error = np.linalg.norm((coords - mean), axis=-1)
         rmsds = np.sqrt(np.mean(error ** 2, axis=0))
-        positions = nuc['structures'][structure]['particles'][chromo]['positions']
+        positions = nuc['structures'][structure]['particles'][chromo]['positions'][:]
         yield chromo, positions, rmsds
 
 @cli.command("rmsd")
@@ -58,3 +58,30 @@ def output_rmsd(nucs, structure, position, align):
         positions = sorted(conserved)
     for chromo, pos in positions:
         print("{}:{} {}".format(chromo, pos, max(rmsd[chromo, pos] for rmsd in nucs_rmsds)))
+
+@cli.command()
+@click.argument("nucs", type=Path, nargs=-1, required=True)
+@click.option("--structure", default="0", help="Which structure in the file to read")
+@click.option("--align/--no-align", default=True, help="Align all models to the first")
+@click.option("--cols", type=int, default=1)
+def plot_rmsd(nucs, structure, align, cols):
+    import matplotlib.pyplot as plt
+    from .util import ceil_div
+    from collections import defaultdict
+
+    rmsdss = defaultdict(list)
+    for nuc in nucs:
+        with HDFFile(nuc, "r") as f:
+            for chromosome, pos, rmsds in rmsd(f, structure, align):
+                rmsdss[chromosome].append((pos, rmsds))
+    fig, axs = plt.subplots(ceil_div(len(rmsdss), cols), cols, sharex=True, sharey=True)
+    if cols == 1:
+        # Fix matplotlib's return type
+        axs = [axs]
+    for ax, (chromosome, data) in zip(chain.from_iterable(axs), sorted(rmsdss.items())):
+        for poss, rmsds in data:
+            ax.plot(poss, rmsds)
+        ax.set_ylabel('\n'.join(("RMSD", chromosome)))
+    for ax in axs[-1]:
+        ax.set_xlabel("Genome Position (bp)")
+    plt.show()

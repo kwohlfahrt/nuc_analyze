@@ -23,3 +23,6 @@ def unflatten_dict(it):
             d = d[k]
         d[ks[-1]] = v
     return r
+
+def ceil_div(x, y):
+    return x // y + (x % y != 0)

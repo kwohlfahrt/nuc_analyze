@@ -12,3 +12,8 @@ def test_unflatten_dict():
     expected = {0: {1: {2: 'foo', 3: 'foo2'}, 'bar': 'baz'}, 5: 'foo'}
 
     assert expected == unflatten_dict(data.items())
+
+
+def test_ceil_div():
+    assert ceil_div(4, 2) == 2
+    assert ceil_div(5, 2) == 3
