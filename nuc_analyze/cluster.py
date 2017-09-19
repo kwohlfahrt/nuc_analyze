@@ -27,6 +27,7 @@ def plot_clusters(nuc, output, figsize, structure):
     if output is not None:
         matplotlib.use('Agg')
     import matplotlib.pyplot as plt
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
     with HDFFile(nuc, "r") as f:
         coords = np.concatenate(
@@ -37,8 +38,9 @@ def plot_clusters(nuc, output, figsize, structure):
             metric=distance
         )
     fig, ax = plt.subplots(1, 1, figsize=figsize)
-    hierarchy.dendrogram(Z, ax=ax)
+    hierarchy.dendrogram(Z, ax=ax, link_color_func=lambda i: colors[0])
     ax.set_xlabel("model")
+    ax.set_ylabel("RMSD")
 
     if output is None:
         plt.show()
