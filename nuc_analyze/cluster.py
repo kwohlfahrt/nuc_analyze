@@ -16,31 +16,38 @@ def distance(x, y):
     y = y.reshape(-1, 3)
     return np.sqrt(np.mean((y - x) ** 2))
 
-@cli.command()
-@click.argument("nuc", type=Path, required=True)
-@click.option("--output", help="Where to save the plot")
-@click.option("--figsize", type=(float, float), default=(8, 6),
-              help="The size of the figure (in inches)")
-@click.option("--structure", default="0", help="Which structure in the file to read")
-def plot_clusters(nuc, output, figsize, structure):
-    import matplotlib
-    if output is not None:
-        matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-
+def linkage(nuc, structure):
     with HDFFile(nuc, "r") as f:
         coords = np.concatenate(
             list(f['structures'][structure]['coords'].values()), axis=1
         )
-        Z = hierarchy.linkage(
+        return hierarchy.linkage(
             coords.reshape(coords.shape[0], -1), method='single',
             metric=distance
         )
-    fig, ax = plt.subplots(1, 1, figsize=figsize)
-    hierarchy.dendrogram(Z, ax=ax, link_color_func=lambda i: colors[0])
-    ax.set_xlabel("model")
-    ax.set_ylabel("RMSD")
+
+@cli.command()
+@click.argument("nucs", type=Path, nargs=-1)
+@click.option("--output", help="Where to save the plot")
+@click.option("--figsize", type=(float, float), default=(8, 6),
+              help="The size of the figure (in inches)")
+@click.option("--structure", default="0", help="Which structure in the file to read")
+def plot_clusters(nucs, output, figsize, structure):
+    import matplotlib
+    colors = matplotlib.rcParams['axes.prop_cycle'].by_key()['color']
+    if output is not None:
+        matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    fig, (axs,) = plt.subplots(1, len(nucs), figsize=figsize, squeeze=False, sharey=True)
+    height = 0.
+    for nuc, ax in zip(nucs, axs):
+        Z = linkage(nuc, structure=structure)
+        height = max(height, max(Z[:, 2]) * 1.05)
+        hierarchy.dendrogram(Z, ax=ax, link_color_func=lambda i: colors[0])
+        ax.set_ylim((0, height))
+        ax.set_xlabel("model")
+    axs[0].set_ylabel("RMSD")
 
     if output is None:
         plt.show()
