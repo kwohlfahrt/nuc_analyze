@@ -28,11 +28,12 @@ def linkage(nuc, structure):
 
 @cli.command()
 @click.argument("nucs", type=Path, nargs=-1)
+@click.option("--title", type=str, multiple=True)
 @click.option("--output", help="Where to save the plot")
 @click.option("--figsize", type=(float, float), default=(8, 6),
               help="The size of the figure (in inches)")
 @click.option("--structure", default="0", help="Which structure in the file to read")
-def plot_clusters(nucs, output, figsize, structure):
+def plot_clusters(nucs, title, output, figsize, structure):
     import matplotlib
     colors = matplotlib.rcParams['axes.prop_cycle'].by_key()['color']
     if output is not None:
@@ -48,6 +49,9 @@ def plot_clusters(nucs, output, figsize, structure):
         ax.set_ylim((0, height))
         ax.set_xlabel("model")
     axs[0].set_ylabel("RMSD")
+    if title:
+        for ax, title in zip(axs, title):
+            ax.set_title(title)
 
     if output is None:
         plt.show()
