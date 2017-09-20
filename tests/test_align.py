@@ -52,6 +52,44 @@ def test_commandline(nucfile, runner):
     expected = [
         # chr1
         np.array([[
+            [ 1., 0., 0.],
+            [ 5., 0., 0.],
+            [ 8., 0., 1.],
+            [ 8., 1., 1.],
+        ], [
+            [ 1., 0., 0.],
+            [ 5., 0., 0.],
+            [ 8., 0., 1.],
+            [ 8., 1., 1.],
+        ]], dtype='double'),
+        # chr2
+        np.array([[
+            [-1., 0., 3.],
+            [-5., 0., 3.],
+            [-0., 0., 3.],
+            [-0., 1., 3.],
+        ], [
+            [-1., 0., 3.],
+            [-5., 0., 3.],
+            [-0., 0., 3.],
+            [-0., 1., 3.],
+        ]], dtype='double'),
+    ]
+
+    with h5py.File(str(nucfile), "r") as f:
+        coords = f['structures']['0']['coords']
+        for expected, (_, coords) in zip(expected, sorted(coords.items())):
+            np.testing.assert_allclose(expected, coords, atol=1e-14)
+
+def test_commandline_median(nucfile, runner):
+    args = [str(nucfile), "--target", "median"]
+    result = runner.invoke(align, args)
+    print(result.output)
+    assert result.exit_code == 0
+
+    expected = [
+        # chr1
+        np.array([[
             [ 1., 0.5, 0.],
             [ 5., 0.5, 0.],
             [ 8., 0.5, 1.],
